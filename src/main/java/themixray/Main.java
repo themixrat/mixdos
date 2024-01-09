@@ -5,6 +5,7 @@ import com.sun.jna.Function;
 import com.sun.jna.platform.win32.WinDef;
 import com.sun.jna.platform.win32.WinNT;
 import themixray.minecraft.MinecraftServer;
+import themixray.proxy.ProxyParser;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -34,6 +35,10 @@ public class Main {
             throw new RuntimeException(e);
         }
         return proxies;
+    }
+
+    public static Set<Proxy> parseProxies() {
+        return new ProxyParser(Proxy.Type.SOCKS).startParsing();
     }
 
     public static Map<String,List<String>> parseParams(String[] args) {
@@ -120,7 +125,7 @@ public class Main {
             "Optional args:\n" +
             "  --count <count of players>      // Number of bots to connect (infinite by default)\n" +
             "  --delay <players connect delay> // Milliseconds between bot connections (default 500 if bots is infinite, else 50)\n" +
-            "  --proxy <proxies.txt file>      // File with SOCKS5 proxy, on each line IP:PORT (disabled by default)\n" +
+            "  --proxy <proxies.txt file>      // File with SOCKS5 proxy, on each line IP:PORT (parsing by default)\n" +
             "  --prefix <player name prefix>   // Bot nickname prefix (random characters by default)\n" +
             "  --debug                         // See information about sent packets (disabled by default)\n");
     }
@@ -165,7 +170,7 @@ public class Main {
 
         bots_count = params.containsKey("count") ? Integer.parseInt(params.get("count").get(0)) : -1;
         bots_delay = params.containsKey("delay") ? Long.parseLong(params.get("delay").get(0)) : (bots_count == -1 ? 500 : 50);
-        proxies = params.containsKey("proxy") ? parseProxies(new File(params.get("proxy").get(0))) : null;
+        proxies = params.containsKey("proxy") ? parseProxies(new File(params.get("proxy").get(0))) : parseProxies();
         prefix = params.containsKey("prefix") ? params.get("prefix").get(0) : null;
         debug_mode = params.containsKey("debug");
 
@@ -174,7 +179,7 @@ public class Main {
                 "Protocol version: "+protocol_version+"\n"+
                 "Bots count: "+bots_count+"\n"+
                 "Bots delay: "+bots_delay+"\n"+
-                "Proxy: "+(proxies != null ? params.get("proxy").get(0) : "-")+"\n"+
+                "Proxy: "+proxies.size()+"\n"+
                 "Prefix: "+prefix+"\n"+
                 "Debug mode: "+debug_mode+"\n");
 
