@@ -1,5 +1,6 @@
 package themixray.minecraft;
 
+import com.diogonunes.jcolor.Attribute;
 import themixray.packets.InputPacketContainer;
 import themixray.Main;
 import themixray.packets.OutputPacketContainer;
@@ -10,6 +11,8 @@ import java.util.UUID;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+
+import static com.diogonunes.jcolor.Ansi.colorize;
 
 public class MinecraftPlayer {
     public Socket sock;
@@ -29,6 +32,8 @@ public class MinecraftPlayer {
         this.uuid = uuid;
         this.name = name;
 
+        this.sock = sock;
+
         this.output = new DataOutputStream(sock.getOutputStream());
         this.input = new DataInputStream(sock.getInputStream());
     }
@@ -40,7 +45,8 @@ public class MinecraftPlayer {
                 sendLoginStartPacket();
                 readPackets();
             } catch (Exception e) {
-                e.printStackTrace();
+                if (Main.debug_mode)
+                    e.printStackTrace();
             }
         }).start();
     }
@@ -66,41 +72,47 @@ public class MinecraftPlayer {
         packet.sendCompressedPacket(this, compressionThreshold);
     }
 
-    private void sendAcknowledgedResponse() {
+    private void sendAcknowledgedPacket() {
         OutputPacketContainer packet = new OutputPacketContainer((byte) 0x03);
         packet.writeVarInt(0);
         packet.sendCompressedPacket(this, compressionThreshold);
     }
+
+    private void sendKeepAlivePacket(long id) {
+        OutputPacketContainer packet = new OutputPacketContainer((byte) 0x03);
+        packet.writeLong(id);
+        packet.sendCompressedPacket(this, compressionThreshold);
+    }
+
+    private boolean connected = false;
 
     private void readPackets() {
         InputPacketContainer packet;
         try {
             packet = new InputPacketContainer(input, compressionThreshold);
         } catch (Exception e) {
-            e.printStackTrace();
+            if (Main.debug_mode)
+                e.printStackTrace();
             return;
         }
 
         int length = packet.getPacketSize();
         int packetId = packet.getPacketId();
 
-        if (packetId == 0x02) { // Packet ID for login success
-            UUID uuid = new UUID(packet.readLong(), packet.readLong()); // UUID is received
-            String username = packet.readString(); // Username is received as String
+        if (packetId == 0x02) {
+            UUID uuid = new UUID(packet.readLong(), packet.readLong());
+            String username = packet.readString();
 
-//            System.out.println("UUID: " + uuid + ", Username: " + username);
-            System.out.println(name+": Connection Successful!");
+            System.out.println(colorize(username+" ["+uuid+"] connected", Attribute.GREEN_TEXT()));
+            connected = true;
 
-            sendAcknowledgedResponse();
-        } else if (packetId == 0x03) { // Packet ID for login success
-            int threshold = packet.readVarInt();
-//            System.out.println("threshold: " + threshold);
-            compressionThreshold = threshold;
-//            sendAcknowledgedResponse();
-//            return true;
-        } else if (packetId == 0x00) {
-//            System.out.println("Login Failed!");
-//            System.out.println((String)((List<Object>)((Map<String,Object>)JSON.load(readString(input))).get("with")).get(0));
+            sendAcknowledgedPacket();
+        } else if (packetId == 0x03) {
+            if (!connected) {
+                compressionThreshold = packet.readVarInt();
+            } else {
+                sendKeepAlivePacket(packet.readLong());
+            }
         }
 
         readPackets();

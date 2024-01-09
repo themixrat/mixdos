@@ -1,5 +1,7 @@
 package themixray.minecraft;
 
+import themixray.Main;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -37,7 +39,8 @@ public class MinecraftServer {
             connected.add(player);
             return player;
         } catch (IOException e) {
-            e.printStackTrace();
+            if (Main.debug_mode)
+                e.printStackTrace();
             return null;
         }
     }

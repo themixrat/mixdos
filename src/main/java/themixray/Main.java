@@ -1,6 +1,9 @@
 package themixray;
 
 import com.diogonunes.jcolor.Attribute;
+import com.sun.jna.Function;
+import com.sun.jna.platform.win32.WinDef;
+import com.sun.jna.platform.win32.WinNT;
 import themixray.minecraft.MinecraftServer;
 
 import java.io.File;
@@ -45,11 +48,6 @@ public class Main {
                 params.put(a.substring(2), options);
             } else if (options != null) {
                 options.add(a);
-            } else {
-                List<String> o = params.getOrDefault(
-                        null, new ArrayList<>());
-                o.add(a);
-                params.put(null, o);
             }
         }
 
@@ -63,6 +61,22 @@ public class Main {
             if (!params.containsKey(k))
                 return false;
         return true;
+    }
+
+    public static void enableWindows10AnsiSupport() {
+        Function GetStdHandleFunc = Function.getFunction("kernel32", "GetStdHandle");
+        WinDef.DWORD STD_OUTPUT_HANDLE = new WinDef.DWORD(-11);
+        WinNT.HANDLE hOut = (WinNT.HANDLE) GetStdHandleFunc.invoke(WinNT.HANDLE.class, new Object[]{STD_OUTPUT_HANDLE});
+
+        WinDef.DWORDByReference p_dwMode = new WinDef.DWORDByReference(new WinDef.DWORD(0));
+        Function GetConsoleModeFunc = Function.getFunction("kernel32", "GetConsoleMode");
+        GetConsoleModeFunc.invoke(WinDef.BOOL.class, new Object[]{hOut, p_dwMode});
+
+        int ENABLE_VIRTUAL_TERMINAL_PROCESSING = 4;
+        WinDef.DWORD dwMode = p_dwMode.getValue();
+        dwMode.setValue(dwMode.intValue() | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+        Function SetConsoleModeFunc = Function.getFunction("kernel32", "SetConsoleMode");
+        SetConsoleModeFunc.invoke(WinDef.BOOL.class, new Object[]{hOut, dwMode});
     }
 
     public static MinecraftServer server;
@@ -114,6 +128,8 @@ public class Main {
     public static void main(String[] args) {
         exec_file = new File(Main.class.getProtectionDomain().getCodeSource().getLocation().getPath());
 
+        if (exec_file.getName().endsWith(".exe")) enableWindows10AnsiSupport();
+
         sendLogoMessage();
 
         Map<String,List<String>> params = parseParams(args);
@@ -164,8 +180,12 @@ public class Main {
 
         server = new MinecraftServer(host,protocol_version);
 
-        for (int i = 0; i < bots_count; i++) connectPlayer(i);
-        while (true) sleep(100000);
+        if (bots_count != -1) {
+            for (int i = 0; i < bots_count; i++) connectPlayer(i);
+            while (true) sleep(100000);
+        } else {
+            for (int i = 0; i > -1; i++) connectPlayer(i);
+        }
     }
 
     public static void sleep(long ms) {

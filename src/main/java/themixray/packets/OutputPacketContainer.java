@@ -71,6 +71,13 @@ public class OutputPacketContainer {
     public void writeVarLong(long v) {
         writeVarLong(output,v);
     }
+    public void writeLong(long v) {
+        try {
+            output.writeLong(v);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public void writeBytes(byte[] v) {
         try {
