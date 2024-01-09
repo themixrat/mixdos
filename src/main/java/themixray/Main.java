@@ -1,5 +1,6 @@
 package themixray;
 
+import com.diogonunes.jcolor.Attribute;
 import themixray.minecraft.MinecraftServer;
 
 import java.io.File;
@@ -8,6 +9,8 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.util.*;
+
+import static com.diogonunes.jcolor.Ansi.colorize;
 
 public class Main {
     public static InetSocketAddress parseAddress(String text, int port_default) {
@@ -72,25 +75,46 @@ public class Main {
     public static Set<Proxy> proxies;
     public static String prefix;
 
+    public static boolean debug_mode;
+
     public static File exec_file;
+
+    public static void sendLogoMessage() {
+        System.out.println(colorize(
+                " ███▄ ▄███▓ ██▓▒██   ██▒▓█████▄  ▒█████    ██████ \n" +
+                "▓██▒▀█▀ ██▒▓██▒▒▒ █ █ ▒░▒██▀ ██▌▒██▒  ██▒▒██    ▒ \n" +
+                "▓██    ▓██░▒██▒░░  █   ░░██   █▌▒██░  ██▒░ ▓██▄   \n" +
+                "▒██    ▒██ ░██░ ░ █ █ ▒ ░▓█▄   ▌▒██   ██░  ▒   ██▒\n" +
+                "▒██▒   ░██▒░██░▒██▒ ▒██▒░▒████▓ ░ ████▓▒░▒██████▒▒\n" +
+                "░ ▒░   ░  ░░▓  ▒▒ ░ ░▓ ░ ▒▒▓  ▒ ░ ▒░▒░▒░ ▒ ▒▓▒ ▒ ░\n" +
+                "░  ░      ░ ▒ ░░░   ░▒ ░ ░ ▒  ▒   ░ ▒ ▒░ ░ ░▒  ░ ░\n" +
+                "░      ░    ▒ ░ ░    ░   ░ ░  ░ ░ ░ ░ ▒  ░  ░  ░  \n" +
+                "       ░    ░   ░    ░     ░        ░ ░        ░  \n" +
+                "                         ░                        \n",
+                Attribute.MAGENTA_TEXT(),
+                Attribute.BOLD()));
+    }
 
     public static void sendHelpMessage() {
         System.out.println(
             "Example: "+exec_file.getName()+" --ip localhost --protocol 763\n\n" +
 
-            "Args: \n" +
-            "  --protocol <protocol version>\n" +
-            "  --ip <server ip>\n\n" +
+            "Required args: \n" +
+            "  --protocol <protocol version>   // Server protocol version (https://wiki.vg/Protocol_version_numbers)\n" +
+            "  --ip <server ip>                // Server IP:PORT (default port 25565)\n\n" +
 
             "Optional args:\n" +
-            "  --count <count of players>\n" +
-            "  --delay <players connect delay in ms>\n" +
-            "  --proxy <proxies.txt file>\n" +
-            "  --prefix <player name prefix>\n");
+            "  --count <count of players>      // Number of bots to connect (infinite by default)\n" +
+            "  --delay <players connect delay> // Milliseconds between bot connections (default 500 if bots is infinite, else 50)\n" +
+            "  --proxy <proxies.txt file>      // File with SOCKS5 proxy, on each line IP:PORT (disabled by default)\n" +
+            "  --prefix <player name prefix>   // Bot nickname prefix (random characters by default)\n" +
+            "  --debug                         // See information about sent packets (disabled by default)\n");
     }
 
     public static void main(String[] args) {
         exec_file = new File(Main.class.getProtectionDomain().getCodeSource().getLocation().getPath());
+
+        sendLogoMessage();
 
         Map<String,List<String>> params = parseParams(args);
 
@@ -127,6 +151,7 @@ public class Main {
         bots_delay = params.containsKey("delay") ? Long.parseLong(params.get("delay").get(0)) : (bots_count == -1 ? 500 : 50);
         proxies = params.containsKey("proxy") ? parseProxies(new File(params.get("proxy").get(0))) : null;
         prefix = params.containsKey("prefix") ? params.get("prefix").get(0) : null;
+        debug_mode = params.containsKey("debug");
 
         System.out.println(
                 "Host: "+host+"\n"+
@@ -134,12 +159,13 @@ public class Main {
                 "Bots count: "+bots_count+"\n"+
                 "Bots delay: "+bots_delay+"\n"+
                 "Proxy: "+(proxies != null ? params.get("proxy").get(0) : "-")+"\n"+
-                "Prefix: "+prefix+"\n\n");
+                "Prefix: "+prefix+"\n"+
+                "Debug mode: "+debug_mode+"\n");
 
         server = new MinecraftServer(host,protocol_version);
 
         for (int i = 0; i < bots_count; i++) connectPlayer(i);
-        while (true) sleep(10000);
+        while (true) sleep(100000);
     }
 
     public static void sleep(long ms) {
@@ -202,10 +228,12 @@ public class Main {
     }
 
     public static void logOutputPacket(int length, byte packetId, byte[] message) {
-        System.out.println("output "+byteToHex(packetId)+" ["+length+"] : "+new String(message)+" ["+message.length+"]");
+        if (debug_mode)
+            System.out.println("output "+byteToHex(packetId)+" ["+length+"] : "+new String(message)+" ["+message.length+"]");
     }
 
     public static void logInputPacket(int packetSize, byte packetId, byte[] data) {
-        System.out.println("input "+byteToHex(packetId)+" ["+packetSize+"] : "+new String(data)+" ["+data.length+"]");
+        if (debug_mode)
+            System.out.println("input "+byteToHex(packetId)+" ["+packetSize+"] : "+new String(data)+" ["+data.length+"]");
     }
 }
