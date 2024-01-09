@@ -6,7 +6,7 @@
 
     <groupId>themixray</groupId>
     <artifactId>mixdos</artifactId>
-    <version>1.1</version>
+    <version>1.2</version>
     <description>Minecraft server stress tool</description>
     <packaging>jar</packaging>
     <name>MixDos</name>

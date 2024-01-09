@@ -103,11 +103,19 @@ public class OutputPacketContainer {
     }
 
     public void sendPacket(MinecraftPlayer player) {
+        sendPacket(player.output);
+    }
+
+    public void sendCompressedPacket(MinecraftPlayer player, int threshold) {
+        sendCompressedPacket(player.output, threshold);
+    }
+
+    public void sendPacket(DataOutputStream output) {
         byte[] message = buffer.toByteArray();
         try {
-            writeVarInt(player.output, message.length);
-            player.output.write(message);
-            player.output.flush();
+            writeVarInt(output, message.length);
+            output.write(message);
+            output.flush();
 
             Main.logOutputPacket(message.length, packet_id, message);
         } catch (IOException e) {
@@ -115,9 +123,9 @@ public class OutputPacketContainer {
         }
     }
 
-    public void sendCompressedPacket(MinecraftPlayer player, int threshold) {
+    public void sendCompressedPacket(DataOutputStream output, int threshold) {
         if (threshold == -1) {
-            sendPacket(player);
+            sendPacket(output);
             return;
         }
 
@@ -125,16 +133,16 @@ public class OutputPacketContainer {
 
         try {
             if (message.length < threshold) {
-                writeVarInt(player.output, message.length + 1);
-                writeVarInt(player.output, 0);
-                player.output.write(message);
+                writeVarInt(output, message.length + 1);
+                writeVarInt(output, 0);
+                output.write(message);
             } else {
                 byte[] compressed = zlibCompress(message);
-                writeVarInt(player.output, compressed.length + 1);
-                writeVarInt(player.output, message.length);
-                player.output.write(compressed);
+                writeVarInt(output, compressed.length + 1);
+                writeVarInt(output, message.length);
+                output.write(compressed);
             }
-            player.output.flush();
+            output.flush();
 
             Main.logOutputPacket(message.length, packet_id, message);
         } catch (IOException e) {

@@ -21,34 +21,43 @@ public class InputPacketContainer {
     private byte packet_id;
     private int packet_size;
 
-    public InputPacketContainer(DataInputStream input, int compression_threshold) throws IOException {
-        byte[] data;
+    public InputPacketContainer(DataInputStream input) {
+        this(input, -1);
+    }
 
-        if (compression_threshold == -1) {
-            packet_size = readVarInt(input);
-            data = input.readNBytes(packet_size);
-        } else {
-            int compressed_size = readVarInt(input);
-            packet_size = readVarInt(input);
+    public InputPacketContainer(DataInputStream input, int compression_threshold) {
+        try {
+            byte[] data;
 
-            if (packet_size <= compression_threshold) {
-                packet_size = compressed_size;
+            if (compression_threshold == -1) {
+                packet_size = readVarInt(input);
                 data = input.readNBytes(packet_size);
             } else {
-                try {
-                    data = zlipDecompress(input.readNBytes(packet_size));
-                } catch (DataFormatException e) {
-                    throw new RuntimeException(e);
+                int compressed_size = readVarInt(input);
+                packet_size = readVarInt(input);
+
+                if (packet_size <= compression_threshold) {
+                    packet_size = compressed_size;
+                    data = input.readNBytes(packet_size);
+                } else {
+                    try {
+                        data = zlipDecompress(input.readNBytes(packet_size));
+                    } catch (DataFormatException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
             }
+
+            Main.logInputPacket(packet_size, packet_id, data);
+
+            this.buffer = new BufferedInputStream(new ByteArrayInputStream(data));
+            this.input = new DataInputStream(buffer);
+
+            this.packet_id = (byte) readVarInt();
+        } catch (IOException e) {
+            if (Main.debug_mode)
+                e.printStackTrace();
         }
-
-        Main.logInputPacket(packet_size, packet_id, data);
-
-        this.buffer = new BufferedInputStream(new ByteArrayInputStream(data));
-        this.input = new DataInputStream(buffer);
-
-        this.packet_id = (byte) readVarInt();
     }
 
     public int getPacketSize() {
