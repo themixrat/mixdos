@@ -1,6 +1,9 @@
 package themixray.proxy;
 
+import com.diogonunes.jcolor.Attribute;
 import themixray.JSON;
+import themixray.Main;
+import themixray.minecraft.MinecraftServer;
 
 import java.io.IOException;
 import java.net.*;
@@ -8,6 +11,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static com.diogonunes.jcolor.Ansi.colorize;
 
 public class ProxyParser {
     private static List<SoupParser> parsers = new ArrayList<>();
@@ -112,13 +119,67 @@ public class ProxyParser {
         );
     }
 
-    public boolean checkProxy(Proxy proxy) {
+    public static Set<Proxy> checkProxies(
+            Set<Proxy> proxies,
+            Proxy.Type proxy_type,
+            InetSocketAddress server) {
+        System.out.println("Checking proxies...\n");
+
+        Set<Proxy> res = new HashSet<>();
+        AtomicInteger checked = new AtomicInteger();
+
+        for (Proxy p:proxies) {
+            new Thread(() -> {
+                if (checkProxy(p, proxy_type, server)) {
+                    res.add(p);
+                    if (Main.debug_mode)
+                        System.out.println(colorize(p.toString(), Attribute.GREEN_TEXT()));
+                } else {
+                    if (Main.debug_mode)
+                        System.out.println(colorize(p.toString(), Attribute.RED_TEXT()));
+                }
+                checked.getAndIncrement();
+            }).start();
+        }
+
+        while (checked.get() < proxies.size()) {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        return res;
+    }
+
+    public static boolean checkProxy(Proxy proxy, Proxy.Type proxy_type, InetSocketAddress server) {
         if (!proxy.type().equals(proxy_type)) return false;
 
-        try {
-            return ((InetSocketAddress)proxy.address()).getAddress().isReachable(1000);
-        } catch (Exception e) {}
-        return false;
+        AtomicLong ping = new AtomicLong(-1);
+
+        new Thread(() -> {
+            try {
+                ping.set(MinecraftServer.fetchPing(server, proxy));
+            } catch (Exception e) {}
+        }).start();
+
+        long start = System.currentTimeMillis();
+
+        while (true) {
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
+            if (System.currentTimeMillis() - start > 5000 ||
+                    ping.get() != -1) {
+                break;
+            }
+        }
+
+        return ping.get() != -1 && ping.get() < 3000;
     }
 
     public HttpClient httpClient = HttpClient.newHttpClient();
@@ -137,31 +198,46 @@ public class ProxyParser {
     public Set<Proxy> parsed;
     public Proxy.Type proxy_type;
     public int seconds;
+    public InetSocketAddress server;
 
-    public ProxyParser(Proxy.Type proxy_type) {
+    public ProxyParser(Proxy.Type proxy_type, int parse_time, InetSocketAddress server) {
         this.parsed = new HashSet<>();
         this.proxy_type = proxy_type;
-        this.seconds = 20;
+        this.seconds = parse_time;
+        this.server = server;
     }
 
     public Set<Proxy> startParsing() {
         System.out.println("Parsing proxies... ("+seconds+" sec)\n");
-        long start = System.currentTimeMillis();
 
         Collections.shuffle(parsers);
 
-        for (SoupParser s:parsers) {
-            List<Proxy> proxies = new ArrayList<>(parseProxies(s));
-            Collections.shuffle(proxies);
+        new Thread(() -> {
+            for (SoupParser s : parsers) {
+                List<Proxy> proxies = new ArrayList<>(parseProxies(s));
+                Collections.shuffle(proxies);
 
-            for (Proxy p : proxies) {
-                if (checkProxy(p)) {
-                    parsed.add(p);
-                    if (System.currentTimeMillis() - start >= 1000 * seconds)
-                        return parsed;
+                for (Proxy p : proxies) {
+                    new Thread(() -> {
+                        if (checkProxy(p,proxy_type,server)) {
+                            parsed.add(p);
+                            if (Main.debug_mode)
+                                System.out.println(colorize(p.toString(), Attribute.GREEN_TEXT()));
+                        } else {
+                            if (Main.debug_mode)
+                                System.out.println(colorize(p.toString(), Attribute.RED_TEXT()));
+                        }
+                    }).start();
                 }
             }
+        }).start();
+
+        try {
+            Thread.sleep(seconds * 1000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
+
         return parsed;
     }
 }

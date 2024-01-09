@@ -15,6 +15,7 @@ import java.net.Proxy;
 import java.util.*;
 
 import static com.diogonunes.jcolor.Ansi.colorize;
+import static themixray.proxy.ProxyParser.checkProxies;
 
 public class Main {
     public static InetSocketAddress parseAddress(String text, int port_default) {
@@ -35,11 +36,11 @@ public class Main {
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
         }
-        return proxies;
+        return checkProxies(proxies, Proxy.Type.SOCKS, host);
     }
 
     public static Set<Proxy> parseProxies() {
-        return new ProxyParser(Proxy.Type.SOCKS).startParsing();
+        return new ProxyParser(Proxy.Type.SOCKS, parse_time, host).startParsing();
     }
 
     public static Map<String,List<String>> parseParams(String[] args) {
@@ -94,6 +95,7 @@ public class Main {
     public static long bots_delay;
     public static Set<Proxy> proxies;
     public static String prefix;
+    public static int parse_time;
 
     public static boolean debug_mode;
 
@@ -127,6 +129,7 @@ public class Main {
             "  --count <count of players>      // Number of bots to connect (infinite by default)\n" +
             "  --delay <players connect delay> // Milliseconds between bot connections (default 500 if bots is infinite, else 50)\n" +
             "  --proxy <proxies.txt file>      // File with SOCKS5 proxy, on each line IP:PORT (parsing by default)\n" +
+            "  --parse-time <proxy parse time> // Seconds to parse proxies (default 20)\n" +
             "  --prefix <player name prefix>   // Bot nickname prefix (random characters by default)\n" +
             "  --debug                         // See information about sent packets and errors (disabled by default)\n");
     }
@@ -150,6 +153,7 @@ public class Main {
         host = parseAddress(params.get("ip").get(0),25565);
         protocol_version = params.containsKey("protocol") ? Integer.parseInt(params.get("protocol").get(0)) : -1;
         bots_count = params.containsKey("count") ? Integer.parseInt(params.get("count").get(0)) : -1;
+        parse_time = params.containsKey("parse-time") ? Integer.parseInt(params.get("parse-time").get(0)) : 40;
         bots_delay = params.containsKey("delay") ? Long.parseLong(params.get("delay").get(0)) : (bots_count == -1 ? 500 : 50);
         proxies = params.containsKey("proxy") ? parseProxies(new File(params.get("proxy").get(0))) : parseProxies();
         prefix = params.containsKey("prefix") ? params.get("prefix").get(0) : null;
@@ -164,7 +168,8 @@ public class Main {
                 "Protocol version: "+server.protocol_version+"\n"+
                 "Bots count: "+bots_count+"\n"+
                 "Bots delay: "+bots_delay+"\n"+
-                "Proxy: "+proxies.size()+"\n"+
+                "Proxies: "+proxies.size()+"\n"+
+                "Parse time: "+parse_time+"\n"+
                 "Prefix: "+prefix+"\n"+
                 "Debug mode: "+debug_mode+"\n");
 

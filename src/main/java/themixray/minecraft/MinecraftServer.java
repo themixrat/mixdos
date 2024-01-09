@@ -36,10 +36,42 @@ public class MinecraftServer {
     public MinecraftServer(InetSocketAddress host) {
         this.host = host;
         this.connected = new ArrayList<>();
-        this.protocol_version = ((Long) ((Map<String,Object>)fetchStatus().get("version")).get("protocol")).intValue();
+        this.protocol_version = ((Long) ((Map<String,Object>)fetchStatus(host).get("version")).get("protocol")).intValue();
     }
 
-    public Map<String,Object> fetchStatus() {
+    public static long fetchPing(InetSocketAddress host, Proxy proxy) {
+        try {
+            Socket sock = proxy != null ? new Socket(proxy) : new Socket();
+            sock.connect(host);
+
+            DataOutputStream output = new DataOutputStream(sock.getOutputStream());
+            DataInputStream input = new DataInputStream(sock.getInputStream());
+
+            OutputPacketContainer handshake = new OutputPacketContainer((byte) 0x00);
+
+            handshake.writeVarInt(0); // Protocol version
+            handshake.writeString(host.getHostString()); // Server address
+            handshake.writeShort((short) host.getPort()); // Server port as unsigned short
+            handshake.writeVarInt(1); // Next state (1 for status)
+
+            handshake.sendPacket(output);
+
+            OutputPacketContainer ping = new OutputPacketContainer((byte) 0x01);
+            ping.writeLong(System.currentTimeMillis());
+            ping.sendPacket(output);
+
+            InputPacketContainer pong = new InputPacketContainer(input);
+
+            if (pong.getPacketId() == 0x01) {
+                long start = pong.readLong();
+                sock.close();
+                return System.currentTimeMillis() - start;
+            }
+        } catch (Exception e) {}
+        return -1;
+    }
+
+    public static Map<String,Object> fetchStatus(InetSocketAddress host) {
         try {
             Socket sock = new Socket();
             sock.connect(host);
@@ -49,7 +81,7 @@ public class MinecraftServer {
 
             OutputPacketContainer handshake = new OutputPacketContainer((byte) 0x00);
 
-            handshake.writeVarInt(protocol_version); // Protocol version
+            handshake.writeVarInt(0); // Protocol version
             handshake.writeString(host.getHostString()); // Server address
             handshake.writeShort((short) host.getPort()); // Server port as unsigned short
             handshake.writeVarInt(1); // Next state (1 for status)

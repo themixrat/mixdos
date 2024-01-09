@@ -84,6 +84,12 @@ public class MinecraftPlayer {
         packet.sendCompressedPacket(this, compressionThreshold);
     }
 
+    private void sendConfirmTeleportationPacket(int id) {
+        OutputPacketContainer packet = new OutputPacketContainer((byte) 0x00);
+        packet.writeVarInt(id);
+        packet.sendCompressedPacket(this, compressionThreshold);
+    }
+
     private boolean connected = false;
 
     private void readPackets() {
@@ -107,12 +113,15 @@ public class MinecraftPlayer {
             connected = true;
 
             sendAcknowledgedPacket();
+            readPackets();
         } else if (packetId == 0x03) {
             if (!connected) {
                 compressionThreshold = packet.readVarInt();
             } else {
                 sendKeepAlivePacket(packet.readLong());
             }
+        } else if (packetId == 0x3E) {
+            sendConfirmTeleportationPacket(packet.readVarInt());
         }
 
         readPackets();
