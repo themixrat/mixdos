@@ -1,8 +1,9 @@
 # MixDos
 Minecraft server stress tool. <br>
+Proxy finder + checker is bundled <br>
 **ONLY FOR TESTING PROTECTION PLUGINS**
 
-![image](https://github.com/MeexReay/mixdos/assets/127148610/e470b89f-4f37-4feb-ad9a-78aa2d569e21)
+![image](https://github.com/MeexReay/mixdos/assets/127148610/fb0d4a41-b3d8-4f85-a6a1-ded49bd292e3)
 
 ## Example
 **EXE**
