@@ -127,19 +127,15 @@ public class Main {
     }
 
     public static void sendLogoMessage() {
-        System.out.println(getGradientColored(List.of(
-                " ███▄ ▄███▓ ██▓▒██   ██▒▓█████▄  ▒█████    ██████ ",
-                "▓██▒▀█▀ ██▒▓██▒▒▒ █ █ ▒░▒██▀ ██▌▒██▒  ██▒▒██    ▒ ",
-                "▓██    ▓██░▒██▒░░  █   ░░██   █▌▒██░  ██▒░ ▓██▄   ",
-                "▒██    ▒██ ░██░ ░ █ █ ▒ ░▓█▄   ▌▒██   ██░  ▒   ██▒",
-                "▒██▒   ░██▒░██░▒██▒ ▒██▒░▒████▓ ░ ████▓▒░▒██████▒▒",
-                "░ ▒░   ░  ░░▓  ▒▒ ░ ░▓ ░ ▒▒▓  ▒ ░ ▒░▒░▒░ ▒ ▒▓▒ ▒ ░",
-                "░  ░      ░ ▒ ░░░   ░▒ ░ ░ ▒  ▒   ░ ▒ ▒░ ░ ░▒  ░ ░",
-                "░      ░    ▒ ░ ░    ░   ░ ░  ░ ░ ░ ░ ▒  ░  ░  ░  ",
-                "       ░    ░   ░    ░     ░        ░ ░        ░  ",
-                "                         ░                        "),
+        System.out.println(getGradientColored(List.of((
+                "• ▌ ▄ ·. ▪  ▐▄• ▄ ·▄▄▄▄        .▄▄ · \n" +
+                "·██ ▐███▪██  █▌█▌▪██▪ ██ ▪     ▐█ ▀. \n" +
+                "▐█ ▌▐▌▐█·▐█· ·██· ▐█· ▐█▌ ▄█▀▄ ▄▀▀▀█▄\n" +
+                "██ ██▌▐█▌▐█▌▪▐█·█▌██. ██ ▐█▌.▐▌▐█▄▪▐█\n" +
+                "▀▀  █▪▀▀▀▀▀▀•▀▀ ▀▀▀▀▀▀▀•  ▀█▄▀▪ ▀▀▀▀ "
+                ).split("\n")),
                 new Color(155, 0, 255),
-                new Color(80, 0, 160)));
+                new Color(80, 0, 160))+"\n");
     }
 
     public static void sendHelpMessage() {
@@ -159,8 +155,7 @@ public class Main {
             "  --cmds \"</cmd1>\" \"</cmd2>\" ...  // Entering commands after logging into the server\n" +
             "  --cmds-delay <value>            // Specific milliseconds before each command is entered\n" +
             "  --cmds-delay <min> <max>        // Random milliseconds before each command is entered\n" +
-            "  --debug                         // See information about sent packets and errors (disabled by default)\n" +
-            "  --fix-ansi                      // Fix colors in windows console (disabled by default)\n");
+            "  --debug                         // See information about sent packets and errors (disabled by default)\n");
     }
 
     public static void main(String[] args) {
@@ -168,13 +163,14 @@ public class Main {
 
         Map<String,List<String>> params = parseParams(args);
 
-        if (params.containsKey("fix-ansi")) enableWindows10AnsiSupport();
+        if (System.getProperty("os.name").toLowerCase().contains("windows"))
+            enableWindows10AnsiSupport();
 
         sendLogoMessage();
 
-        if ((args.length == 1 &&
-                args[0].equals("help"))
-                || (args.length == 0)) {
+        if ((args.length == 1 && args[0].equals("help")) ||
+                (args.length == 0) ||
+                (!checkParams(params,List.of("ip")))) {
             sendHelpMessage();
             return;
         }
@@ -222,7 +218,7 @@ public class Main {
                 param_name.format("      Bots delay: ")+param_value.format(String.valueOf(bots_delay))+"\n"+
                 param_name.format("         Proxies: ")+param_value.format(String.valueOf(proxies.size()))+"\n"+
                 param_name.format("      Parse time: ")+param_value.format(String.valueOf(parse_time))+"\n"+
-                param_name.format("          Prefix: ")+param_value.format(prefix.toString())+"\n"+
+                param_name.format("          Prefix: ")+param_value.format(String.valueOf(prefix))+"\n"+
                 param_name.format("      Debug mode: ")+param_value.format(String.valueOf(debug_mode))+"\n" +
                 param_name.format("Commands on join: "));
 
