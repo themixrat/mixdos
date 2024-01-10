@@ -5,12 +5,9 @@ Protocol version auto-detect <br>
 Infinite bots count <br>
 Customizable bot prefix <br>
 Commands on join <br>
+**[Downloads](https://github.com/MeexReay/mixdos/releases/tag/1.5)**
 
 ![image](https://github.com/MeexReay/mixdos/assets/127148610/d7ee6657-401d-4298-a5bd-0d8ba86a33d0)
-
-## Downloads
-[mixdos-1.5.exe](https://github.com/MeexReay/mixdos/releases/download/1.5/mixdos-1.5.exe) <br>
-[mixdos-1.5.jar](https://github.com/MeexReay/mixdos/releases/download/1.5/mixdos-1.5.jar)
 
 ## Parameters
 |      **Name**     |                    **Description**                   |            **Usage**           |  **Default**  | **Required** |
