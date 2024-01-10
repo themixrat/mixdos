@@ -1,5 +1,6 @@
 package themixray;
 
+import com.diogonunes.jcolor.AnsiFormat;
 import com.diogonunes.jcolor.Attribute;
 import com.sun.jna.Function;
 import com.sun.jna.platform.win32.WinDef;
@@ -7,14 +8,21 @@ import com.sun.jna.platform.win32.WinNT;
 import themixray.minecraft.MinecraftServer;
 import themixray.proxy.ProxyParser;
 
+import java.awt.*;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.util.*;
+import java.util.List;
+import java.util.zip.DataFormatException;
+import java.util.zip.Deflater;
+import java.util.zip.Inflater;
 
 import static com.diogonunes.jcolor.Ansi.colorize;
+import static com.diogonunes.jcolor.Attribute.*;
 import static themixray.proxy.ProxyParser.checkProxies;
 
 public class Main {
@@ -93,28 +101,45 @@ public class Main {
 
     public static int bots_count;
     public static long bots_delay;
-    public static Set<Proxy> proxies;
     public static String prefix;
+
+    public static Set<Proxy> proxies;
     public static int parse_time;
+
+    public static List<String> chat_on_join;
+    public static List<Long> chat_delays;
 
     public static boolean debug_mode;
 
     public static File exec_file;
 
+    public static String getGradientColored(List<String> lines, Color from, Color to) {
+        StringBuilder text = new StringBuilder();
+        Gradient g = new Gradient(from, to);
+
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
+            Color color = g.getColor(i, lines.size());
+            text.append(colorize(line, Attribute.TEXT_COLOR(color.getRed(), color.getGreen(), color.getBlue())));
+            if (i != lines.size() - 1) text.append("\n");
+        }
+        return text.toString();
+    }
+
     public static void sendLogoMessage() {
-        System.out.println(colorize(
-                " ███▄ ▄███▓ ██▓▒██   ██▒▓█████▄  ▒█████    ██████ \n" +
-                "▓██▒▀█▀ ██▒▓██▒▒▒ █ █ ▒░▒██▀ ██▌▒██▒  ██▒▒██    ▒ \n" +
-                "▓██    ▓██░▒██▒░░  █   ░░██   █▌▒██░  ██▒░ ▓██▄   \n" +
-                "▒██    ▒██ ░██░ ░ █ █ ▒ ░▓█▄   ▌▒██   ██░  ▒   ██▒\n" +
-                "▒██▒   ░██▒░██░▒██▒ ▒██▒░▒████▓ ░ ████▓▒░▒██████▒▒\n" +
-                "░ ▒░   ░  ░░▓  ▒▒ ░ ░▓ ░ ▒▒▓  ▒ ░ ▒░▒░▒░ ▒ ▒▓▒ ▒ ░\n" +
-                "░  ░      ░ ▒ ░░░   ░▒ ░ ░ ▒  ▒   ░ ▒ ▒░ ░ ░▒  ░ ░\n" +
-                "░      ░    ▒ ░ ░    ░   ░ ░  ░ ░ ░ ░ ▒  ░  ░  ░  \n" +
-                "       ░    ░   ░    ░     ░        ░ ░        ░  \n" +
-                "                         ░                        \n",
-                Attribute.MAGENTA_TEXT(),
-                Attribute.BOLD()));
+        System.out.println(getGradientColored(List.of(
+                " ███▄ ▄███▓ ██▓▒██   ██▒▓█████▄  ▒█████    ██████ ",
+                "▓██▒▀█▀ ██▒▓██▒▒▒ █ █ ▒░▒██▀ ██▌▒██▒  ██▒▒██    ▒ ",
+                "▓██    ▓██░▒██▒░░  █   ░░██   █▌▒██░  ██▒░ ▓██▄   ",
+                "▒██    ▒██ ░██░ ░ █ █ ▒ ░▓█▄   ▌▒██   ██░  ▒   ██▒",
+                "▒██▒   ░██▒░██░▒██▒ ▒██▒░▒████▓ ░ ████▓▒░▒██████▒▒",
+                "░ ▒░   ░  ░░▓  ▒▒ ░ ░▓ ░ ▒▒▓  ▒ ░ ▒░▒░▒░ ▒ ▒▓▒ ▒ ░",
+                "░  ░      ░ ▒ ░░░   ░▒ ░ ░ ▒  ▒   ░ ▒ ▒░ ░ ░▒  ░ ░",
+                "░      ░    ▒ ░ ░    ░   ░ ░  ░ ░ ░ ░ ▒  ░  ░  ░  ",
+                "       ░    ░   ░    ░     ░        ░ ░        ░  ",
+                "                         ░                        "),
+                new Color(155, 0, 255),
+                new Color(80, 0, 160)));
     }
 
     public static void sendHelpMessage() {
@@ -131,17 +156,21 @@ public class Main {
             "  --proxy <proxies.txt file>      // File with SOCKS5 proxy, on each line IP:PORT (parsing by default)\n" +
             "  --parse-time <proxy parse time> // Seconds to parse proxies (default 20)\n" +
             "  --prefix <player name prefix>   // Bot nickname prefix (random characters by default)\n" +
-            "  --debug                         // See information about sent packets and errors (disabled by default)\n");
+            "  --cmds \"</cmd1>\" \"</cmd2>\" ...  // Entering commands after logging into the server\n" +
+            "  --cmds-delay <value>            // Specific milliseconds before each command is entered\n" +
+            "  --cmds-delay <min> <max>        // Random milliseconds before each command is entered\n" +
+            "  --debug                         // See information about sent packets and errors (disabled by default)\n" +
+            "  --fix-ansi                      // Fix colors in windows console (disabled by default)\n");
     }
 
     public static void main(String[] args) {
         exec_file = new File(Main.class.getProtectionDomain().getCodeSource().getLocation().getPath());
 
-        if (exec_file.getName().endsWith(".exe")) enableWindows10AnsiSupport();
+        Map<String,List<String>> params = parseParams(args);
+
+        if (params.containsKey("fix-ansi")) enableWindows10AnsiSupport();
 
         sendLogoMessage();
-
-        Map<String,List<String>> params = parseParams(args);
 
         if ((args.length == 1 &&
                 args[0].equals("help"))
@@ -158,20 +187,60 @@ public class Main {
         proxies = params.containsKey("proxy") ? parseProxies(new File(params.get("proxy").get(0))) : parseProxies();
         prefix = params.containsKey("prefix") ? params.get("prefix").get(0) : null;
         debug_mode = params.containsKey("debug");
+        chat_on_join = params.get("cmds");
+        chat_delays = new ArrayList<>();
+
+        if (params.containsKey("cmds-delay")) {
+            List<String> chat_d = params.get("cmds-delay");
+            if (chat_d.size() == 2) {
+                long min = Long.parseLong(chat_d.get(0));
+                long max = Long.parseLong(chat_d.get(1));
+                for (int i = 0; i < chat_on_join.size(); i++)
+                    chat_delays.add(rand.nextLong(max + 1 - min) + min);
+            } else if (chat_d.size() == 1) {
+                long value = Long.parseLong(chat_d.get(0));
+                for (int i = 0; i < chat_on_join.size(); i++)
+                    chat_delays.add(value);
+            }
+        } else if (chat_on_join != null) {
+            long value = 1000;
+            for (int i = 0; i < chat_on_join.size(); i++)
+                chat_delays.add(value);
+        }
 
         server = protocol_version == -1 ?
                 new MinecraftServer(host) :
                 new MinecraftServer(host,protocol_version);
 
-        System.out.println(
-                "Host: "+host+"\n"+
-                "Protocol version: "+server.protocol_version+"\n"+
-                "Bots count: "+bots_count+"\n"+
-                "Bots delay: "+bots_delay+"\n"+
-                "Proxies: "+proxies.size()+"\n"+
-                "Parse time: "+parse_time+"\n"+
-                "Prefix: "+prefix+"\n"+
-                "Debug mode: "+debug_mode+"\n");
+        AnsiFormat param_name = new AnsiFormat(YELLOW_TEXT());
+        AnsiFormat param_value = new AnsiFormat(BRIGHT_YELLOW_TEXT());
+
+        System.out.print(
+                param_name.format("            Host: ")+param_value.format(host.toString())+"\n"+
+                param_name.format("Protocol version: ")+param_value.format(String.valueOf(server.protocol_version))+"\n"+
+                param_name.format("      Bots count: ")+param_value.format(String.valueOf(bots_count))+"\n"+
+                param_name.format("      Bots delay: ")+param_value.format(String.valueOf(bots_delay))+"\n"+
+                param_name.format("         Proxies: ")+param_value.format(String.valueOf(proxies.size()))+"\n"+
+                param_name.format("      Parse time: ")+param_value.format(String.valueOf(parse_time))+"\n"+
+                param_name.format("          Prefix: ")+param_value.format(prefix.toString())+"\n"+
+                param_name.format("      Debug mode: ")+param_value.format(String.valueOf(debug_mode))+"\n" +
+                param_name.format("Commands on join: "));
+
+        if (chat_on_join != null) {
+            for (int i = 0; i < chat_on_join.size(); i++) {
+                String v = chat_on_join.get(i);
+                long d = chat_delays.get(i);
+
+                boolean last = chat_on_join.size() == i + 1;
+
+                System.out.print(param_value.format(v) +
+                        param_name.format( " : ") + param_value.format(d + "ms")
+                        + (!last ? param_name.format("\n                * ") : ""));
+            }
+            System.out.println("\n");
+        } else {
+            System.out.println(param_value.format("null\n"));
+        }
 
         if (bots_count != -1) {
             for (int i = 0; i < bots_count; i++) connectPlayer(i);
@@ -240,13 +309,62 @@ public class Main {
         return "0x"+new String(hexDigits).toUpperCase();
     }
 
+    public static AnsiFormat output_log_first = new AnsiFormat(Attribute.BRIGHT_CYAN_TEXT());
+    public static AnsiFormat output_log_second = new AnsiFormat(Attribute.CYAN_TEXT());
+    public static AnsiFormat input_log_first = new AnsiFormat(Attribute.BRIGHT_MAGENTA_TEXT());
+    public static AnsiFormat input_log_second = new AnsiFormat(Attribute.MAGENTA_TEXT());
+
     public static void logOutputPacket(int length, byte packetId, byte[] message) {
         if (debug_mode)
-            System.out.println("output "+byteToHex(packetId)+" ["+length+"] : "+new String(message)+" ["+message.length+"]");
+            System.out.println(output_log_second.format("-> ")+
+                    output_log_first.format(byteToHex(packetId))+
+                    output_log_second.format(" ["+length+"] : ")+
+                    output_log_first.format(new String(message))+
+                    output_log_second.format(" ["+message.length+"]"));
     }
 
-    public static void logInputPacket(int packetSize, byte packetId, byte[] data) {
+    public static void logInputPacket(int length, byte packetId, byte[] message) {
         if (debug_mode)
-            System.out.println("input "+byteToHex(packetId)+" ["+packetSize+"] : "+new String(data)+" ["+data.length+"]");
+            System.out.println(input_log_second.format("<- ")+
+                    input_log_first.format(byteToHex(packetId))+
+                    input_log_second.format(" ["+length+"] : ")+
+                    input_log_first.format(new String(message))+
+                    input_log_second.format(" ["+message.length+"]"));
+    }
+
+    public static byte[] zlibCompress(byte[] data) {
+        Deflater compressor = new Deflater();
+        compressor.setInput(data);
+        compressor.finish();
+        ByteArrayOutputStream bos = new ByteArrayOutputStream(data.length);
+        byte[] buf = new byte[1024];
+        while (!compressor.finished()) {
+            int count = compressor.deflate(buf);
+            bos.write(buf, 0, count);
+        }
+        try {
+            bos.close();
+        } catch (IOException e) {}
+        return bos.toByteArray();
+    }
+
+    public static byte[] zlipDecompress(byte[] data) throws DataFormatException {
+        Inflater inflater = new Inflater();
+        int to_decompress = data.length;
+        inflater.setInput(data,0,to_decompress);
+        List<Byte> result = new ArrayList<>();
+
+        while (!inflater.needsInput()) {
+            byte[] bytes = new byte[to_decompress];
+            int bytes_decompressed = inflater.inflate(bytes);
+            for (int b = 0; b < bytes_decompressed; b++)
+                result.add(bytes[b]);
+        }
+        inflater.end();
+
+        byte[] res_bytes = new byte[result.size()];
+        for (int i = 0; i < res_bytes.length; i++)
+            res_bytes[i] = result.get(i);
+        return res_bytes;
     }
 }

@@ -72,41 +72,38 @@ public class MinecraftServer {
     }
 
     public static Map<String,Object> fetchStatus(InetSocketAddress host) {
-        try {
-            Socket sock = new Socket();
-            sock.connect(host);
+        MinecraftConnection conn = new MinecraftConnection() {
+            @Override
+            protected void onError(Throwable error) {
 
-            DataOutputStream output = new DataOutputStream(sock.getOutputStream());
-            DataInputStream input = new DataInputStream(sock.getInputStream());
-
-            OutputPacketContainer handshake = new OutputPacketContainer((byte) 0x00);
-
-            handshake.writeVarInt(0); // Protocol version
-            handshake.writeString(host.getHostString()); // Server address
-            handshake.writeShort((short) host.getPort()); // Server port as unsigned short
-            handshake.writeVarInt(1); // Next state (1 for status)
-
-            handshake.sendPacket(output);
-
-            OutputPacketContainer status = new OutputPacketContainer((byte) 0x00);
-//            status.writeVarInt(0);
-            status.sendPacket(output);
-
-            InputPacketContainer packet = new InputPacketContainer(input);
-
-            int length = packet.getPacketSize();
-            int packetId = packet.getPacketId();
-
-            if (packetId == 0x00) {
-                Map<String,Object> data = (Map<String, Object>)
-                        JSON.load(packet.readString());
-                sock.close();
-                return data;
             }
-        } catch (IOException e) {
-            if (Main.debug_mode)
-                e.printStackTrace();
+        };
+
+        conn.connect(host,null);
+
+        conn.writePacket(() -> {
+            OutputPacketContainer packet = new OutputPacketContainer((byte) 0x00);
+
+            packet.writeVarInt(0); // Protocol version
+            packet.writeString(host.getHostString()); // Server address
+            packet.writeShort((short) host.getPort()); // Server port as unsigned short
+            packet.writeVarInt(1); // Next state (1 for status)
+
+            return packet;
+        });
+
+        conn.writePacket(() -> new OutputPacketContainer((byte) 0x00));
+
+        InputPacketContainer packet = conn.readPacket();
+
+        if (packet == null) return null;
+
+        if (packet.getPacketId() == 0x00) {
+            Map<String,Object> data = (Map<String, Object>) JSON.load(packet.readString());
+            conn.close();
+            return data;
         }
+
         return null;
     }
 
@@ -115,19 +112,10 @@ public class MinecraftServer {
     }
 
     public MinecraftPlayer connectPlayer(String name, UUID uuid, Proxy proxy) {
-        try {
-            Socket sock = proxy != null ? new Socket(proxy) : new Socket();
-            sock.connect(host);
-
-            MinecraftPlayer player = new MinecraftPlayer(
-                    this, sock, uuid, name);
-            player.startConnection();
-            connected.add(player);
-            return player;
-        } catch (IOException e) {
-            if (Main.debug_mode)
-                e.printStackTrace();
-            return null;
-        }
+        MinecraftPlayer player = new MinecraftPlayer(
+                this, proxy, uuid, name);
+        player.startConnection();
+        connected.add(player);
+        return player;
     }
 }

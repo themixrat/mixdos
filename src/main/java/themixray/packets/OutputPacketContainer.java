@@ -1,6 +1,7 @@
 package themixray.packets;
 
 import themixray.Main;
+import themixray.minecraft.MinecraftConnection;
 import themixray.minecraft.MinecraftPlayer;
 
 import java.io.ByteArrayOutputStream;
@@ -9,8 +10,14 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.BitSet;
 import java.util.UUID;
+import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
+import java.util.zip.Inflater;
+
+import static themixray.Main.zlibCompress;
+import static themixray.Main.zlipDecompress;
 
 public class OutputPacketContainer {
     private ByteArrayOutputStream buffer;
@@ -68,6 +75,17 @@ public class OutputPacketContainer {
         writeVarInt(output,v);
     }
 
+    public void writeBitSet(BitSet v) {
+        long[] array = v.toLongArray();
+        writeVarInt(array.length);
+        for (int i = 0; i < array.length; i++)
+            writeLong(array[i]);
+    }
+
+    public void writeBoolean(boolean v) {
+        writeByte((byte) (v ? 0x00 : 0x01));
+    }
+
     public void writeVarLong(long v) {
         writeVarLong(output,v);
     }
@@ -102,28 +120,29 @@ public class OutputPacketContainer {
         }
     }
 
-    public void sendPacket(MinecraftPlayer player) {
-        sendPacket(player.output);
+    public void sendPacket(MinecraftPlayer player) throws IOException {
+        sendPacket(player.getOutput());
     }
 
-    public void sendCompressedPacket(MinecraftPlayer player, int threshold) {
-        sendCompressedPacket(player.output, threshold);
+    public void sendCompressedPacket(MinecraftPlayer player, int threshold) throws IOException {
+        sendCompressedPacket(player.getOutput(), threshold);
     }
 
-    public void sendPacket(DataOutputStream output) {
+    public void sendCompressedPacket(MinecraftConnection conn) throws IOException {
+        sendCompressedPacket(conn.getOutput(), conn.getCompressionThreshold());
+    }
+
+    public void sendPacket(DataOutputStream output) throws IOException {
         byte[] message = buffer.toByteArray();
-        try {
-            writeVarInt(output, message.length);
-            output.write(message);
-            output.flush();
 
-            Main.logOutputPacket(message.length, packet_id, message);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        writeVarInt(output, message.length);
+        output.write(message);
+        output.flush();
+
+        Main.logOutputPacket(message.length, packet_id, message);
     }
 
-    public void sendCompressedPacket(DataOutputStream output, int threshold) {
+    public void sendCompressedPacket(DataOutputStream output, int threshold) throws IOException {
         if (threshold == -1) {
             sendPacket(output);
             return;
@@ -131,40 +150,21 @@ public class OutputPacketContainer {
 
         byte[] message = buffer.toByteArray();
 
-        try {
-            if (message.length < threshold) {
-                writeVarInt(output, message.length + 1);
-                writeVarInt(output, 0);
-                output.write(message);
-            } else {
-                byte[] compressed = zlibCompress(message);
-                writeVarInt(output, compressed.length + 1);
-                writeVarInt(output, message.length);
-                output.write(compressed);
-            }
-            output.flush();
+        if (message.length < threshold) {
+            writeVarInt(output, message.length + 1);
+            writeVarInt(output, 0);
+            output.write(message);
 
             Main.logOutputPacket(message.length, packet_id, message);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
+        } else {
+            byte[] compressed = zlibCompress(message);
+            writeVarInt(output, compressed.length + 1);
+            writeVarInt(output, message.length);
+            output.write(compressed);
 
-    private static byte[] zlibCompress(byte[] data) {
-        Deflater compressor = new Deflater();
-        compressor.setLevel(Deflater.BEST_COMPRESSION);
-        compressor.setInput(data);
-        compressor.finish();
-        ByteArrayOutputStream bos = new ByteArrayOutputStream(data.length);
-        byte[] buf = new byte[1024];
-        while (!compressor.finished()) {
-            int count = compressor.deflate(buf);
-            bos.write(buf, 0, count);
+            Main.logOutputPacket(message.length, packet_id, compressed);
         }
-        try {
-            bos.close();
-        } catch (IOException e) {}
-        return bos.toByteArray();
+        output.flush();
     }
 
     private static final int SEGMENT_BITS = 0x7F;

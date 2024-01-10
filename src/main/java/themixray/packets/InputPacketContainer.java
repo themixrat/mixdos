@@ -1,6 +1,7 @@
 package themixray.packets;
 
 import themixray.Main;
+import themixray.minecraft.MinecraftConnection;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -14,6 +15,8 @@ import java.util.zip.DeflaterOutputStream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
 
+import static themixray.Main.zlipDecompress;
+
 public class InputPacketContainer {
     private DataInputStream input;
     private BufferedInputStream buffer;
@@ -21,43 +24,42 @@ public class InputPacketContainer {
     private byte packet_id;
     private int packet_size;
 
-    public InputPacketContainer(DataInputStream input) {
+    public InputPacketContainer(MinecraftConnection conn) throws IOException {
+        this(conn.getInput(), conn.getCompressionThreshold());
+    }
+
+    public InputPacketContainer(DataInputStream input) throws IOException {
         this(input, -1);
     }
 
-    public InputPacketContainer(DataInputStream input, int compression_threshold) {
-        try {
-            byte[] data;
+    public InputPacketContainer(DataInputStream input, int compression_threshold) throws IOException {
+        byte[] data;
 
-            if (compression_threshold == -1) {
-                packet_size = readVarInt(input);
+        if (compression_threshold == -1) {
+            packet_size = readVarInt(input);
+            data = input.readNBytes(packet_size);
+        } else {
+            int compressed_size = readVarInt(input);
+            packet_size = readVarInt(input);
+
+            if (packet_size <= compression_threshold) {
+                packet_size = compressed_size;
                 data = input.readNBytes(packet_size);
             } else {
-                int compressed_size = readVarInt(input);
-                packet_size = readVarInt(input);
-
-                if (packet_size <= compression_threshold) {
-                    packet_size = compressed_size;
-                    data = input.readNBytes(packet_size);
-                } else {
-                    try {
-                        data = zlipDecompress(input.readNBytes(packet_size));
-                    } catch (DataFormatException e) {
-                        throw new RuntimeException(e);
-                    }
+                try {
+                    data = zlipDecompress(input.readNBytes(packet_size));
+                } catch (DataFormatException e) {
+                    throw new RuntimeException(e);
                 }
             }
-
-            Main.logInputPacket(packet_size, packet_id, data);
-
-            this.buffer = new BufferedInputStream(new ByteArrayInputStream(data));
-            this.input = new DataInputStream(buffer);
-
-            this.packet_id = (byte) readVarInt();
-        } catch (IOException e) {
-            if (Main.debug_mode)
-                e.printStackTrace();
         }
+
+        this.buffer = new BufferedInputStream(new ByteArrayInputStream(data));
+        this.input = new DataInputStream(buffer);
+
+        this.packet_id = (byte) readVarInt();
+
+        Main.logInputPacket(packet_size, packet_id, data);
     }
 
     public int getPacketSize() {
@@ -70,6 +72,10 @@ public class InputPacketContainer {
 
     public byte getPacketId() {
         return packet_id;
+    }
+
+    public boolean readBoolean() {
+        return readByte() == 0x01;
     }
 
     public String readString() {
@@ -95,6 +101,22 @@ public class InputPacketContainer {
     public byte readByte() {
         try {
             return input.readByte();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public double readDouble() {
+        try {
+            return input.readDouble();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public float readFloat() {
+        try {
+            return input.readFloat();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -172,49 +194,5 @@ public class InputPacketContainer {
         }
 
         return value;
-    }
-
-    private static byte[] zlipDecompress(byte[] data) throws DataFormatException {
-        byte[] returnValues = null;
-        Inflater inflater = new Inflater();
-        int numberOfBytesToDecompress = data.length;
-        inflater.setInput
-                (
-                        data,
-                        0,
-                        numberOfBytesToDecompress
-                );
-
-        int bufferSizeInBytes = numberOfBytesToDecompress;
-
-        int numberOfBytesDecompressedSoFar = 0;
-        List<Byte> bytesDecompressedSoFar = new ArrayList<Byte>();
-
-        while (inflater.needsInput() == false)
-        {
-            byte[] bytesDecompressedBuffer = new byte[bufferSizeInBytes];
-
-            int numberOfBytesDecompressedThisTime = inflater.inflate
-                    (
-                            bytesDecompressedBuffer
-                    );
-
-            numberOfBytesDecompressedSoFar += numberOfBytesDecompressedThisTime;
-
-            for (int b = 0; b < numberOfBytesDecompressedThisTime; b++)
-            {
-                bytesDecompressedSoFar.add(bytesDecompressedBuffer[b]);
-            }
-        }
-
-        returnValues = new byte[bytesDecompressedSoFar.size()];
-        for (int b = 0; b < returnValues.length; b++)
-        {
-            returnValues[b] = (byte)(bytesDecompressedSoFar.get(b));
-        }
-
-        inflater.end();
-
-        return returnValues;
     }
 }
