@@ -119,48 +119,17 @@ public class ProxyParser {
         );
     }
 
-    public static Set<Proxy> checkProxies(
-            Set<Proxy> proxies,
-            Proxy.Type proxy_type,
-            InetSocketAddress server) {
-        System.out.println("Checking proxies...\n");
-
-        Set<Proxy> res = new HashSet<>();
-        AtomicInteger checked = new AtomicInteger();
-
-        for (Proxy p:proxies) {
-            new Thread(() -> {
-                if (checkProxy(p, proxy_type, server)) {
-                    res.add(p);
-                    if (Main.debug_mode)
-                        System.out.println(colorize(p.toString(), Attribute.GREEN_TEXT()));
-                } else {
-                    if (Main.debug_mode)
-                        System.out.println(colorize(p.toString(), Attribute.RED_TEXT()));
-                }
-                checked.getAndIncrement();
-            }).start();
-        }
-
-        while (checked.get() < proxies.size()) {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        return res;
-    }
-
-    public static boolean checkProxy(Proxy proxy, Proxy.Type proxy_type, InetSocketAddress server) {
+    public boolean checkProxy(Proxy proxy) {
         if (!proxy.type().equals(proxy_type)) return false;
 
         AtomicLong ping = new AtomicLong(-1);
 
         new Thread(() -> {
             try {
-                ping.set(MinecraftServer.fetchPing(server, proxy));
+                ProxyChain chain = new ProxyChain();
+                if (!parsed.isEmpty()) chain.addProxy(parsed.iterator().next());
+                chain.addProxy(proxy);
+                ping.set(MinecraftServer.fetchPing(server, chain));
             } catch (Exception e) {}
         }).start();
 
@@ -199,12 +168,37 @@ public class ProxyParser {
     public Proxy.Type proxy_type;
     public int seconds;
     public InetSocketAddress server;
+    public boolean do_check;
 
-    public ProxyParser(Proxy.Type proxy_type, int parse_time, InetSocketAddress server) {
+    public ProxyParser(Proxy.Type proxy_type,
+                       int parse_time,
+                       InetSocketAddress server,
+                       boolean do_check) {
         this.parsed = new HashSet<>();
         this.proxy_type = proxy_type;
         this.seconds = parse_time;
         this.server = server;
+        this.do_check = do_check;
+    }
+
+    public void checkProxies(List<Proxy> proxies) {
+        if (do_check) {
+            Collections.shuffle(proxies);
+            for (Proxy p : proxies) {
+                new Thread(() -> {
+                    if (checkProxy(p)) {
+                        parsed.add(p);
+                        if (Main.debug_mode)
+                            System.out.println(colorize(p.toString(), Attribute.GREEN_TEXT()));
+                    } else {
+                        if (Main.debug_mode)
+                            System.out.println(colorize(p.toString(), Attribute.RED_TEXT()));
+                    }
+                }).start();
+            }
+        } else {
+            parsed.addAll(proxies);
+        }
     }
 
     public Set<Proxy> startParsing() {
@@ -213,23 +207,8 @@ public class ProxyParser {
         Collections.shuffle(parsers);
 
         new Thread(() -> {
-            for (SoupParser s : parsers) {
-                List<Proxy> proxies = new ArrayList<>(parseProxies(s));
-                Collections.shuffle(proxies);
-
-                for (Proxy p : proxies) {
-                    new Thread(() -> {
-                        if (checkProxy(p,proxy_type,server)) {
-                            parsed.add(p);
-                            if (Main.debug_mode)
-                                System.out.println(colorize(p.toString(), Attribute.GREEN_TEXT()));
-                        } else {
-                            if (Main.debug_mode)
-                                System.out.println(colorize(p.toString(), Attribute.RED_TEXT()));
-                        }
-                    }).start();
-                }
-            }
+            for (SoupParser s : parsers)
+                checkProxies(new ArrayList<>(parseProxies(s)));
         }).start();
 
         try {

@@ -23,7 +23,6 @@ import java.util.zip.Inflater;
 
 import static com.diogonunes.jcolor.Ansi.colorize;
 import static com.diogonunes.jcolor.Attribute.*;
-import static themixray.proxy.ProxyParser.checkProxies;
 
 public class Main {
     public static InetSocketAddress parseAddress(String text, int port_default) {
@@ -44,11 +43,13 @@ public class Main {
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
         }
-        return checkProxies(proxies, Proxy.Type.SOCKS, host);
+        ProxyParser p = new ProxyParser(Proxy.Type.SOCKS, 0, host, true);
+        p.checkProxies(new ArrayList<>(proxies));
+        return p.parsed;
     }
 
-    public static Set<Proxy> parseProxies() {
-        return new ProxyParser(Proxy.Type.SOCKS, parse_time, host).startParsing();
+    public static Set<Proxy> parseProxies(InetSocketAddress parse_server) {
+        return new ProxyParser(Proxy.Type.SOCKS, parse_time, parse_server, true).startParsing();
     }
 
     public static Map<String,List<String>> parseParams(String[] args) {
@@ -104,6 +105,7 @@ public class Main {
     public static String prefix;
 
     public static Set<Proxy> proxies;
+    public static InetSocketAddress parse_server;
     public static int parse_time;
 
     public static List<String> chat_on_join;
@@ -151,6 +153,7 @@ public class Main {
             "  --delay <players connect delay> // Milliseconds between bot connections (default 500 if bots is infinite, else 50)\n" +
             "  --proxy <proxies.txt file>      // File with SOCKS5 proxy, on each line IP:PORT (parsing by default)\n" +
             "  --parse-time <proxy parse time> // Seconds to parse proxies (default 20)\n" +
+            "  --parse-server <check server>   // Server to check parsed proxies (default server ip)\n" +
             "  --prefix <player name prefix>   // Bot nickname prefix (random characters by default)\n" +
             "  --cmds \"</cmd1>\" \"</cmd2>\" ...  // Entering commands after logging into the server\n" +
             "  --cmds-delay <value>            // Specific milliseconds before each command is entered\n" +
@@ -175,12 +178,15 @@ public class Main {
             return;
         }
 
+//        System.out.println(MinecraftServer.fetchStatus(new InetSocketAddress("7.tcp.eu.ngrok.io",10963)));
+
         host = parseAddress(params.get("ip").get(0),25565);
         protocol_version = params.containsKey("protocol") ? Integer.parseInt(params.get("protocol").get(0)) : -1;
         bots_count = params.containsKey("count") ? Integer.parseInt(params.get("count").get(0)) : -1;
         parse_time = params.containsKey("parse-time") ? Integer.parseInt(params.get("parse-time").get(0)) : 40;
+        parse_server = params.containsKey("parse-server") ? parseAddress(params.get("parse-server").get(0),25565) : host;
         bots_delay = params.containsKey("delay") ? Long.parseLong(params.get("delay").get(0)) : (bots_count == -1 ? 500 : 50);
-        proxies = params.containsKey("proxy") ? parseProxies(new File(params.get("proxy").get(0))) : parseProxies();
+        proxies = params.containsKey("proxy") ? parseProxies(new File(params.get("proxy").get(0))) : parseProxies(parse_server);
         prefix = params.containsKey("prefix") ? params.get("prefix").get(0) : null;
         debug_mode = params.containsKey("debug");
         chat_on_join = params.get("cmds");
@@ -279,7 +285,8 @@ public class Main {
     }
 
     public static void connectPlayer(int n) {
-        server.connectPlayer(getName(n), proxies != null ? getRandomElement(proxies) : null);
+        Proxy proxy = getRandomElement(proxies);
+        server.connectPlayer(getName(n), proxy);
         sleep(bots_delay);
     }
 
