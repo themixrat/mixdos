@@ -190,7 +190,7 @@ public class Main {
         parse_time = params.containsKey("parse-time") ? Integer.parseInt(params.get("parse-time").get(0)) : 40;
         check_server = params.containsKey("check-server") ? parseAddress(params.get("check-server").get(0),25565) : host;
         bots_delay = params.containsKey("delay") ? Long.parseLong(params.get("delay").get(0)) : (bots_count == -1 ? 500 : 50);
-        proxies = params.containsKey("proxy") ? parseProxies(new File(params.get("proxy").get(0))) : parseProxies(check_server);
+        proxies = params.containsKey("proxy") ? parseProxies(new File(params.get("proxy").get(0))) : parseProxies();
         prefix = params.containsKey("prefix") ? params.get("prefix").get(0) : null;
         debug_mode = params.containsKey("debug");
         chat_on_join = params.get("cmds");
