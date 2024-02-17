@@ -18,6 +18,7 @@ Commands on join <br>
 | Delay             | Milliseconds between bot connections                 | --delay \<MILLISECONDS\>         | 500           | No           |
 | Proxies           | File with SOCKS5 proxy, on each line IP:PORT         | --proxy \<FILEPATH\>             | parses proxy  | No           |
 | Parse time        | Seconds to parse proxies                             | --parse-time \<SECONDS\>         | 40            | No           |
+| Check server      | Server to check parsed proxies                       | --check-server \<IP[:PORT]\>     | server to connect <br>(none to skip checking) | No           |
 | Prefix            | Bot nickname prefix                                  | --prefix \<STRING\>              | random chars  | No           |
 | Commands          | Entering commands after logging into the server      | --cmds "/\<CMD1>" "/\<CMD2\>" ... | disabled      | No           |
 | Commands delay    | Specific milliseconds before each command is entered | --cmds-delay \<VALUE\>           | 1000          | No           |
