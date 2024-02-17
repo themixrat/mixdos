@@ -5,6 +5,8 @@ import themixray.JSON;
 import themixray.Main;
 import themixray.packets.InputPacketContainer;
 import themixray.packets.OutputPacketContainer;
+import themixray.proxy.ProxyChain;
+import themixray.proxy.ProxyChainSocket;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -39,9 +41,9 @@ public class MinecraftServer {
         this.protocol_version = ((Long) ((Map<String,Object>)fetchStatus(host).get("version")).get("protocol")).intValue();
     }
 
-    public static long fetchPing(InetSocketAddress host, Proxy proxy) {
+    public static long fetchPing(InetSocketAddress host, ProxyChain proxy) {
         try {
-            Socket sock = proxy != null ? new Socket(proxy) : new Socket();
+            ProxyChainSocket sock = new ProxyChainSocket(proxy);
             sock.connect(host);
 
             DataOutputStream output = new DataOutputStream(sock.getOutputStream());

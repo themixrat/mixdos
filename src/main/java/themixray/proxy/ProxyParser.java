@@ -127,8 +127,8 @@ public class ProxyParser {
         new Thread(() -> {
             try {
                 ProxyChain chain = new ProxyChain();
-                if (!parsed.isEmpty()) chain.addProxy(parsed.iterator().next());
                 chain.addProxy(proxy);
+                if (!parsed.isEmpty()) chain.addProxy(parsed.iterator().next());
                 ping.set(MinecraftServer.fetchPing(server, chain));
             } catch (Exception e) {}
         }).start();

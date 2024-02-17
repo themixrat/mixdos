@@ -26,9 +26,13 @@ import static com.diogonunes.jcolor.Attribute.*;
 
 public class Main {
     public static InetSocketAddress parseAddress(String text, int port_default) {
-        String[] ss = text.split(":");
-        return new InetSocketAddress(ss[0],
-            ss.length == 2 ? Integer.parseInt(ss[1]) : port_default);
+        try {
+            String[] ss = text.split(":");
+            return new InetSocketAddress(ss[0],
+                    ss.length == 2 ? Integer.parseInt(ss[1]) : port_default);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public static Set<Proxy> parseProxies(File file) {
@@ -48,8 +52,8 @@ public class Main {
         return p.parsed;
     }
 
-    public static Set<Proxy> parseProxies(InetSocketAddress parse_server) {
-        return new ProxyParser(Proxy.Type.SOCKS, parse_time, parse_server, true).startParsing();
+    public static Set<Proxy> parseProxies() {
+        return new ProxyParser(Proxy.Type.SOCKS, parse_time, check_server, check_server != null).startParsing();
     }
 
     public static Map<String,List<String>> parseParams(String[] args) {
@@ -105,7 +109,7 @@ public class Main {
     public static String prefix;
 
     public static Set<Proxy> proxies;
-    public static InetSocketAddress parse_server;
+    public static InetSocketAddress check_server;
     public static int parse_time;
 
     public static List<String> chat_on_join;
@@ -153,7 +157,7 @@ public class Main {
             "  --delay <players connect delay> // Milliseconds between bot connections (default 500 if bots is infinite, else 50)\n" +
             "  --proxy <proxies.txt file>      // File with SOCKS5 proxy, on each line IP:PORT (parsing by default)\n" +
             "  --parse-time <proxy parse time> // Seconds to parse proxies (default 20)\n" +
-            "  --parse-server <check server>   // Server to check parsed proxies (default server ip)\n" +
+            "  --check-server <check ip>       // Server to check parsed proxies (default server ip) (none to skip checking)\n" +
             "  --prefix <player name prefix>   // Bot nickname prefix (random characters by default)\n" +
             "  --cmds \"</cmd1>\" \"</cmd2>\" ...  // Entering commands after logging into the server\n" +
             "  --cmds-delay <value>            // Specific milliseconds before each command is entered\n" +
@@ -184,9 +188,9 @@ public class Main {
         protocol_version = params.containsKey("protocol") ? Integer.parseInt(params.get("protocol").get(0)) : -1;
         bots_count = params.containsKey("count") ? Integer.parseInt(params.get("count").get(0)) : -1;
         parse_time = params.containsKey("parse-time") ? Integer.parseInt(params.get("parse-time").get(0)) : 40;
-        parse_server = params.containsKey("parse-server") ? parseAddress(params.get("parse-server").get(0),25565) : host;
+        check_server = params.containsKey("check-server") ? parseAddress(params.get("check-server").get(0),25565) : host;
         bots_delay = params.containsKey("delay") ? Long.parseLong(params.get("delay").get(0)) : (bots_count == -1 ? 500 : 50);
-        proxies = params.containsKey("proxy") ? parseProxies(new File(params.get("proxy").get(0))) : parseProxies(parse_server);
+        proxies = params.containsKey("proxy") ? parseProxies(new File(params.get("proxy").get(0))) : parseProxies(check_server);
         prefix = params.containsKey("prefix") ? params.get("prefix").get(0) : null;
         debug_mode = params.containsKey("debug");
         chat_on_join = params.get("cmds");
@@ -224,6 +228,7 @@ public class Main {
                 param_name.format("      Bots delay: ")+param_value.format(String.valueOf(bots_delay))+"\n"+
                 param_name.format("         Proxies: ")+param_value.format(String.valueOf(proxies.size()))+"\n"+
                 param_name.format("      Parse time: ")+param_value.format(String.valueOf(parse_time))+"\n"+
+                param_name.format("    Check server: ")+param_value.format(String.valueOf(check_server))+"\n"+
                 param_name.format("          Prefix: ")+param_value.format(String.valueOf(prefix))+"\n"+
                 param_name.format("      Debug mode: ")+param_value.format(String.valueOf(debug_mode))+"\n" +
                 param_name.format("Commands on join: "));
