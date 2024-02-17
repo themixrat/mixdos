@@ -5,7 +5,7 @@ Protocol version auto-detect <br>
 Infinite bots count <br>
 Customizable bot prefix <br>
 Commands on join <br>
-**[Downloads](https://github.com/MeexReay/mixdos/releases/tag/1.5)**
+**[Downloads](https://github.com/MeexReay/mixdos/releases/latest)**
 
 ![image](https://github.com/MeexReay/mixdos/assets/127148610/d7ee6657-401d-4298-a5bd-0d8ba86a33d0)
 
