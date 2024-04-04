@@ -1,3 +1,6 @@
+
+# ONLY FOR TESTING PROTECTION PLUGINS
+
 # MixDos
 ## Minecraft server stress tool.
 Proxy finder + checker is bundled <br>
@@ -24,5 +27,3 @@ Commands on join <br>
 | Commands delay    | Specific milliseconds before each command is entered | --cmds-delay \<VALUE\>           | 1000          | No           |
 | Random cmds delay | Random milliseconds before each command is entered   | --cmds-delay \<MIN\> \<MAX\>       | 1000 - 1000   | No           |
 | Debug mode        | Enables debug mode                                   | --debug                        | disabled      | No           |
-
-# ONLY FOR TESTING PROTECTION PLUGINS
